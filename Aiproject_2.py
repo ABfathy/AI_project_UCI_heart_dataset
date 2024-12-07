@@ -157,20 +157,11 @@ plt.show()
 ################Phase_2################
 
 X = features
-y = target
+Y = target
 
-# Test Split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+def train_evaluate_supervised_models(X, y, with_pca=False):
 
-# Supervised Learning Algorithms
-def train_evaluate_supervised_models(X_train, X_test, y_train, y_test, with_pca=False):
-    if with_pca:
-        pca = PCA(n_components=5)
-        X_train_pca = pca.fit_transform(X_train)
-        X_test_pca = pca.transform(X_test)
-    else:
-        X_train_pca = X_train
-        X_test_pca = X_test
+    hastech = False
 
     models = {
         'SVM': SVC(kernel='rbf', random_state=42),
@@ -179,41 +170,51 @@ def train_evaluate_supervised_models(X_train, X_test, y_train, y_test, with_pca=
     }
 
     results = {}
-    for name, model in models.items():
-        model.fit(X_train_pca, y_train)
-        y_pred = model.predict(X_test_pca)
 
-        results[name] = {
-            'accuracy': accuracy_score(y_test, y_pred),
-            'confusion_matrix': confusion_matrix(y_test, y_pred)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+
+    if with_pca:
+        pca = PCA(n_components=5)
+        X_train = pca.fit_transform(X_train)
+        X_test = pca.transform(X_test)
+
+
+    for model_name, model in models.items():
+
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('classifier', model)
+        ])
+
+        pipeline.fit(X_train, y_train)
+        y_pred = pipeline.predict(X_test)
+
+        accuracy = accuracy_score(y_test, y_pred)
+        conf_matrix = confusion_matrix(y_test, y_pred)
+
+        results[model_name] = {
+            'accuracy': accuracy,
+            'confusion_matrix': conf_matrix
         }
 
-    return results
+        print(f"\n{model_name}:")
+        print(f"Accuracy: {accuracy}")
+        print("Confusion Matrix:")
+        print(conf_matrix)
 
+    return results , hastech
 
 # Run supervised models without and with PCA
-print("Supervised Learning Results Without PCA:")
-results_without_pca = train_evaluate_supervised_models(X_train, X_test, y_train, y_test, with_pca=False)
-for model, metrics in results_without_pca.items():
-    print(f"\n{model}:")
-    print(f"Accuracy: {metrics['accuracy']}")
-    print("Confusion Matrix:")
-    print(metrics['confusion_matrix'])
-
-print("\n\nSupervised Learning Results With PCA:")
-results_with_pca = train_evaluate_supervised_models(X_train, X_test, y_train, y_test, with_pca=True)
-for model, metrics in results_with_pca.items():
-    print(f"\n{model}:")
-    print(f"Accuracy: {metrics['accuracy']}")
-    print("Confusion Matrix:")
-    print(metrics['confusion_matrix'])
 
 # best method Logistic Regression without PCA
 
 # next step with balancing
 
 def evaluate_models_with_balancing(X, y):
-    # Balancing techniques
+
+    hastech = True
+
     balancing_techniques = {
         'Unbalanced': None,
         'SMOTE': SMOTE(random_state=42),
@@ -221,102 +222,158 @@ def evaluate_models_with_balancing(X, y):
         'Random Under-sampling': RandomUnderSampler(random_state=42)
     }
 
-    # Models to evaluate
     models = {
         'SVM': SVC(kernel='rbf', random_state=42),
         'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
         'Logistic Regression': LogisticRegression(max_iter=1000, random_state=42)
     }
 
-    # Results storage
+
     results = {}
 
     for technique_name, balancing_technique in balancing_techniques.items():
         print(f"\n--- {technique_name} Technique ---")
 
-        # Balancing data if technique is not None
+
         if balancing_technique:
             X_resampled, y_resampled = balancing_technique.fit_resample(X, y)
         else:
             X_resampled, y_resampled = X, y
 
-        # Split the data
-        X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=42)
 
-        # Store results for this balancing technique
+        X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=42)
         results[technique_name] = {}
 
-        # Evaluate each model
         for model_name, model in models.items():
-            # Create a pipeline with scaling
+
             pipeline = Pipeline([
                 ('scaler', StandardScaler()),
                 ('classifier', model)
             ])
 
-            # Fit and predict
             pipeline.fit(X_train, y_train)
             y_pred = pipeline.predict(X_test)
 
-            # Calculate metrics
             accuracy = accuracy_score(y_test, y_pred)
             conf_matrix = confusion_matrix(y_test, y_pred)
 
-            # Store results
             results[technique_name][model_name] = {
                 'accuracy': accuracy,
-                'confusion_matrix': conf_matrix,
-                'class_distribution': pd.Series(y_resampled).value_counts()
+                'confusion_matrix': conf_matrix
+            }
+
+            print(f"\n{model_name}:")
+            print(f"Accuracy: {accuracy}")
+            print("Confusion Matrix:")
+            print(conf_matrix)
+
+
+    return results , hastech
+
+# With balancing and pcaa
+def evaluate_models_with_pca_and_balancing(X, y, n_components=5):
+
+    hastech = True
+
+    balancing_techniques = {
+        'Unbalanced': None,
+        'SMOTE': SMOTE(random_state=42),
+        'Random Over-sampling': RandomOverSampler(random_state=42),
+        'Random Under-sampling': RandomUnderSampler(random_state=42)
+    }
+
+    models = {
+        'SVM': SVC(kernel='rbf', random_state=42),
+        'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
+        'Logistic Regression': LogisticRegression(max_iter=1000, random_state=42)
+    }
+
+    results = {}
+
+    for technique_name, balancing_technique in balancing_techniques.items():
+        print(f"\n--- {technique_name} Technique with PCA ---")
+
+        if balancing_technique:
+            X_resampled, y_resampled = balancing_technique.fit_resample(X, y)
+        else:
+            X_resampled, y_resampled = X, y
+
+        pca = PCA(n_components=n_components)
+        X_resampled_pca = pca.fit_transform(X_resampled)
+
+        X_train, X_test, y_train, y_test = train_test_split(X_resampled_pca, y_resampled, test_size=0.2, random_state=42)
+
+        results[technique_name] = {}
+
+        for model_name, model in models.items():
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+
+            accuracy = accuracy_score(y_test, y_pred)
+            conf_matrix = confusion_matrix(y_test, y_pred)
+
+            results[technique_name][model_name] = {
+                'accuracy': accuracy,
+                'confusion_matrix': conf_matrix
             }
 
             # Print results
             print(f"\n{model_name}:")
             print(f"Accuracy: {accuracy}")
-            print("Confusion Matrix:")
-            print(conf_matrix)
-            print("\nClass Distribution:")
-            print(results[technique_name][model_name]['class_distribution'])
+            print(f"Confusion Matrix:\n{conf_matrix}")
 
-    return results
+    return results, hastech
 
 
-def plot_accuracy_comparison(results):
-    # Prepare data for plotting
+def plot_accuracy_comparison(results, hastech=False):
+
     techniques = list(results.keys())
-    models = list(results[techniques[0]].keys())
+    models = list(results[techniques[0]].keys()) if hastech else list(results.keys())
 
-    # Create a DataFrame for accuracies
-    accuracies = {model: [results[technique][model]['accuracy'] for technique in techniques]
-                  for model in models}
 
-    # Plotting
+    if hastech:
+        accuracies = {model: [results[technique][model]['accuracy'] for technique in techniques]
+                      for model in models}
+    else:
+        accuracies = {model: [results[model]['accuracy']] for model in models}
+
+    # Plot
     plt.figure(figsize=(12, 6))
-    x = np.arange(len(techniques))
-    width = 0.25
+    if hastech:
+        x = np.arange(len(techniques))
+        width = 0.25
+        for i, (model, acc) in enumerate(accuracies.items()):
+            plt.bar(x + i * width, acc, width, label=model)
+        plt.xticks(x + width, techniques)
+    else:
+        x = np.arange(len(models))
+        plt.bar(x, [acc[0] for acc in accuracies.values()])
+        plt.xticks(x, models)
 
-    for i, (model, acc) in enumerate(accuracies.items()):
-        plt.bar(x + i * width, acc, width, label=model)
-
-    plt.xlabel('Balancing Techniques')
+    plt.xlabel('Balancing Techniques' if hastech else 'Models')
     plt.ylabel('Accuracy')
-    plt.title('Model Accuracy Across Balancing Techniques')
-    plt.xticks(x + width, techniques)
+    plt.title('Model Accuracy Comparison')
     plt.legend()
     plt.tight_layout()
     plt.show()
 
-results = evaluate_models_with_balancing(features, target)
-plot_accuracy_comparison(results)
+results_no_pca, hastech_no_pca = train_evaluate_supervised_models(X, Y, with_pca=False)
+results_with_pca, hastech_with_pca = train_evaluate_supervised_models(X, Y, with_pca=True)
+results_balancing, hastech_balancing = evaluate_models_with_balancing(X, Y)
+results_pca_balancing, hastech_pca_balancing = evaluate_models_with_pca_and_balancing(X, Y)
 
-# random forest over-sampling followed by logistic reg smote & unbalanced
+plot_accuracy_comparison(results_no_pca, hastech_no_pca)
+plot_accuracy_comparison(results_with_pca, hastech_with_pca)
+plot_accuracy_comparison(results_balancing, hastech_balancing)
+plot_accuracy_comparison(results_pca_balancing, hastech_pca_balancing)
+
 
 def find_optimal_clusters(X, max_k=10):
-    visualizer = KElbowVisualizer(KMeans(random_state=42), k=(2, max_k))
+    visualizer = KElbowVisualizer(KMeans(random_state=42), k=(1, max_k))
     visualizer.fit(X)
     plt.title('Elbow Method for Optimal k')
     plt.show()
     return visualizer.elbow_value_
-
 
 # Find optimal number of clusters
 optimal_k = find_optimal_clusters(X)
@@ -330,11 +387,27 @@ kmeans.fit(X)
 silhouette_avg = silhouette_score(X, kmeans.labels_)
 print(f"Silhouette Score: {silhouette_avg}")
 
-# Scatter plot of clusters (using first two features)
-plt.figure(figsize=(10, 8))
-scatter = plt.scatter(X.iloc[:, 0], X.iloc[:, 1], c=kmeans.labels_, cmap='viridis')
-plt.title(f'K-Means Clustering (k={optimal_k})')
-plt.xlabel(X.columns[0])
-plt.ylabel(X.columns[1])
-plt.colorbar(scatter)
-plt.show()
+'''
+Unbalanced Technique:
+Logistic Regression: 83.62% (0.8361581920903954)
+SMOTE Technique:
+Logistic Regression: 83.33% (0.8333333333333334)
+Random Over-sampling Technique:
+Random Forest: 83.85% (0.8385416666666666)
+Random Under-sampling Technique:
+SVM: 82.72% (0.8271604938271605)
+Unbalanced Technique with PCA:
+Logistic Regression: 80.79% (0.807909604519774)
+SMOTE Technique with PCA:
+Logistic Regression: 83.85% (0.8385416666666666)
+Random Over-sampling Technique with PCA:
+Random Forest: 83.85% (0.8385416666666666)
+Random Under-sampling Technique with PCA:
+Random Forest: 80.86% (0.808641975308642)
+
+Highest With 83.85% (0.8385416666666666):
+SMOTE Technique with PCA (Logistic Regression)
+Random Over-sampling Technique (Random Forest)
+Random Over-sampling Technique with PCA (Random Forest)
+
+'''
