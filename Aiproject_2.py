@@ -12,11 +12,13 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.cluster import KMeans
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, precision_score, recall_score, \
+    f1_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import silhouette_score
 from yellowbrick.cluster import KElbowVisualizer
+import time
 
 # Load dataset
 df = pd.read_csv('heart_disease_uci.csv', index_col=0)
@@ -103,7 +105,7 @@ df[new_numeric_columns] = scaler.fit_transform(df[new_numeric_columns])
 
 
 # Correlation matrix and heatmap
-plt.figure(figsize=(10, 8))
+plt.figure(figsize=(14, 11))
 sns.heatmap(df.corr(), annot=True, cmap='coolwarm')
 plt.title('Correlation Matrix Heatmap')
 plt.show()
@@ -191,17 +193,29 @@ def train_evaluate_supervised_models(X, y, with_pca=False):
         y_pred = pipeline.predict(X_test)
 
         accuracy = accuracy_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred)
+        recall = recall_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
         conf_matrix = confusion_matrix(y_test, y_pred)
 
         results[model_name] = {
             'accuracy': accuracy,
+            'precision': precision,
+            'recall': recall,
+            'f1_score': f1,
             'confusion_matrix': conf_matrix
         }
 
         print(f"\n{model_name}:")
         print(f"Accuracy: {accuracy}")
+        print(f"Precision: {precision}")
+        print(f"Recall: {recall}")
+        print(f"F1-Score: {f1}")
         print("Confusion Matrix:")
         print(conf_matrix)
+
+
+
 
     return results , hastech
 
@@ -255,17 +269,28 @@ def evaluate_models_with_balancing(X, y):
             y_pred = pipeline.predict(X_test)
 
             accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred)
+            recall = recall_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
             conf_matrix = confusion_matrix(y_test, y_pred)
 
-            results[technique_name][model_name] = {
+            results[model_name] = {
                 'accuracy': accuracy,
+                'precision': precision,
+                'recall': recall,
+                'f1_score': f1,
                 'confusion_matrix': conf_matrix
             }
 
             print(f"\n{model_name}:")
             print(f"Accuracy: {accuracy}")
+            print(f"Precision: {precision}")
+            print(f"Recall: {recall}")
+            print(f"F1-Score: {f1}")
             print("Confusion Matrix:")
             print(conf_matrix)
+            # Plot Confusion Matrix as Heatmap
+
 
 
     return results , hastech
@@ -310,63 +335,61 @@ def evaluate_models_with_pca_and_balancing(X, y, n_components=5):
             y_pred = model.predict(X_test)
 
             accuracy = accuracy_score(y_test, y_pred)
+            precision = precision_score(y_test, y_pred)
+            recall = recall_score(y_test, y_pred)
+            f1 = f1_score(y_test, y_pred)
             conf_matrix = confusion_matrix(y_test, y_pred)
 
-            results[technique_name][model_name] = {
+            results[model_name] = {
                 'accuracy': accuracy,
+                'precision': precision,
+                'recall': recall,
+                'f1_score': f1,
                 'confusion_matrix': conf_matrix
             }
 
-            # Print results
             print(f"\n{model_name}:")
             print(f"Accuracy: {accuracy}")
-            print(f"Confusion Matrix:\n{conf_matrix}")
+            print(f"Precision: {precision}")
+            print(f"Recall: {recall}")
+            print(f"F1-Score: {f1}")
+            print("Confusion Matrix:")
+            print(conf_matrix)
+            time.sleep(1)
+            plt.figure(figsize=(6, 5))
+            sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=[0, 1], yticklabels=[0, 1])
+            plt.title(f'{model_name} Confusion Matrix')
+            plt.xlabel('Predicted')
+            plt.ylabel('True')
+            plt.show()
+
 
     return results, hastech
 
 
-def plot_accuracy_comparison(results, hastech=False):
 
-    techniques = list(results.keys())
-    models = list(results[techniques[0]].keys()) if hastech else list(results.keys())
-
-
-    if hastech:
-        accuracies = {model: [results[technique][model]['accuracy'] for technique in techniques]
-                      for model in models}
-    else:
-        accuracies = {model: [results[model]['accuracy']] for model in models}
-
-    # Plot
-    plt.figure(figsize=(12, 6))
-    if hastech:
-        x = np.arange(len(techniques))
-        width = 0.25
-        for i, (model, acc) in enumerate(accuracies.items()):
-            plt.bar(x + i * width, acc, width, label=model)
-        plt.xticks(x + width, techniques)
-    else:
-        x = np.arange(len(models))
-        plt.bar(x, [acc[0] for acc in accuracies.values()])
-        plt.xticks(x, models)
-
-    plt.xlabel('Balancing Techniques' if hastech else 'Models')
-    plt.ylabel('Accuracy')
-    plt.title('Model Accuracy Comparison')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
 
 results_no_pca, hastech_no_pca = train_evaluate_supervised_models(X, Y, with_pca=False)
 results_with_pca, hastech_with_pca = train_evaluate_supervised_models(X, Y, with_pca=True)
 results_balancing, hastech_balancing = evaluate_models_with_balancing(X, Y)
 results_pca_balancing, hastech_pca_balancing = evaluate_models_with_pca_and_balancing(X, Y)
 
-plot_accuracy_comparison(results_no_pca, hastech_no_pca)
-plot_accuracy_comparison(results_with_pca, hastech_with_pca)
-plot_accuracy_comparison(results_balancing, hastech_balancing)
-plot_accuracy_comparison(results_pca_balancing, hastech_pca_balancing)
 
+################### Clustering ###################
+
+def plot_cluster_scatter(X, kmeans):
+    # Reduce dimensions to 2 for visualization
+    pca = PCA(n_components=2)
+    X_reduced = pca.fit_transform(X)
+
+    # Scatter plot of clustered data
+    plt.figure(figsize=(8, 6))
+    plt.scatter(X_reduced[:, 0], X_reduced[:, 1], c=kmeans.labels_, cmap='viridis', s=50)
+    plt.title("K-Means Clustering (2D PCA Projection)")
+    plt.xlabel("Principal Component 1")
+    plt.ylabel("Principal Component 2")
+    plt.colorbar(label="Cluster")
+    plt.show()
 
 def find_optimal_clusters(X, max_k=10):
     visualizer = KElbowVisualizer(KMeans(random_state=42), k=(1, max_k))
@@ -386,6 +409,9 @@ kmeans.fit(X)
 # Evaluate clustering
 silhouette_avg = silhouette_score(X, kmeans.labels_)
 print(f"Silhouette Score: {silhouette_avg}")
+
+# Visualize clustered data
+plot_cluster_scatter(X, kmeans)
 
 '''
 Unbalanced Technique:
